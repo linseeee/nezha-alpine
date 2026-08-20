@@ -1,0 +1,10 @@
+# Nezha Dashboard v2 最小配置（放在 /opt/nezha/dashboard/data/config.yaml）
+# 说明：v2 支持 NZ_* 环境变量覆盖；缺省 listen_port=8008。
+# 空库首次启动会自动创建 admin/admin 账号，登录后请立即改密。
+debug: false
+listen_host: "0.0.0.0"
+listen_port: 8008
+language: zh-CN
+location: Asia/Shanghai
+site_name: "Nezha"
+force_auth: true

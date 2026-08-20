@@ -1,0 +1,17 @@
+#!/sbin/openrc-run
+# Nezha Monitoring Dashboard (OpenRC / Alpine)
+name="nezha-dashboard"
+description="Nezha Monitoring Dashboard"
+
+command="/opt/nezha/dashboard/dashboard"
+command_args="-c /opt/nezha/dashboard/data/config.yaml"
+command_background="yes"
+pidfile="/run/${RC_SVCNAME}.pid"
+directory="/opt/nezha/dashboard"
+output_log="/var/log/nezha-dashboard.log"
+error_log="/var/log/nezha-dashboard.err"
+
+depend() {
+    need net
+    after firewall
+}

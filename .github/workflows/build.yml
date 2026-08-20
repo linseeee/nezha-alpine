@@ -1,0 +1,89 @@
+name: Build musl binaries
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [ main ]
+    paths: [ '.github/workflows/build.yml' ]
+
+permissions:
+  contents: write
+
+env:
+  NZHA_VERSION: v2.3.7   # nezhahq/nezha (dashboard) 上游版本
+  AGENT_VERSION: v2.3.3  # nezhahq/agent 上游版本
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain (musl-gcc, yq, unzip)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq musl-tools unzip
+          sudo wget -q https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq
+          sudo chmod +x /usr/local/bin/yq
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          cache: false
+
+      - name: Clone upstream sources
+        run: |
+          git clone --depth 1 --branch "$NZHA_VERSION" https://github.com/nezhahq/nezha.git src/nezha
+          git clone --depth 1 --branch "$AGENT_VERSION" https://github.com/nezhahq/agent.git src/agent
+
+      - name: Fetch frontend dists (embedded into binary)
+        working-directory: src/nezha
+        run: bash script/fetch-frontends.sh
+
+      - name: Build dashboard (musl static, embedded frontend)
+        working-directory: src/nezha
+        run: |
+          CGO_ENABLED=1 CC=x86_64-linux-musl-gcc go build -trimpath -buildvcs=false -tags go_json \
+            -ldflags "-s -w -X github.com/nezhahq/nezha/service/singleton.Version=${NZHA_VERSION} -extldflags '-static -fpic'" \
+            -o "${GITHUB_WORKSPACE}/dist/dashboard-linux-amd64" ./cmd/dashboard
+
+      - name: Build agent (pure static)
+        working-directory: src/agent
+        run: |
+          CGO_ENABLED=0 go build -trimpath -buildvcs=false \
+            -ldflags "-s -w -X github.com/nezhahq/agent/pkg/monitor.Version=${AGENT_VERSION}" \
+            -o "${GITHUB_WORKSPACE}/dist/nezha-agent-linux-amd64" ./cmd/agent
+
+      - name: Verify static linking
+        run: |
+          file dist/dashboard-linux-amd64 dist/nezha-agent-linux-amd64
+          (ldd dist/dashboard-linux-amd64 2>&1 || true) | head -3
+
+      - name: Checksums
+        run: |
+          cd dist && sha256sum dashboard-linux-amd64 nezha-agent-linux-amd64 > checksums.txt && cat checksums.txt
+
+      - name: Package deploy bundle
+        run: |
+          cp deploy/deploy.sh dist/deploy.sh
+          chmod +x dist/deploy.sh
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: musl-binaries
+          path: dist/
+
+      - name: Publish release (tag: alpine, overwritten on each build)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: alpine
+          name: "Nezha Alpine binaries — dashboard ${{ env.NZHA_VERSION }} / agent ${{ env.AGENT_VERSION }}"
+          body: |
+            musl 静态二进制（无需 glibc，直接跑 Alpine）。
+            - dashboard: nezhahq/nezha ${{ env.NZHA_VERSION }}（内嵌官方前端）
+            - agent: nezhahq/agent ${{ env.AGENT_VERSION }}
+            下载后目标机部署见仓库 deploy/ 目录。
+          files: dist/*
+          fail_on_unmatched_files: false
+          allow_update: true

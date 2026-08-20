@@ -1,0 +1,16 @@
+#!/sbin/openrc-run
+# Nezha Monitoring Agent (OpenRC / Alpine)
+name="nezha-agent"
+description="Nezha Monitoring Agent"
+
+command="/opt/nezha-agent/nezha-agent"
+command_background="yes"
+pidfile="/run/${RC_SVCNAME}.pid"
+directory="/opt/nezha-agent"
+output_log="/var/log/nezha-agent.log"
+error_log="/var/log/nezha-agent.err"
+
+depend() {
+    need net
+    after firewall
+}

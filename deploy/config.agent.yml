@@ -1,0 +1,12 @@
+# Nezha Agent 配置（放在 /opt/nezha-agent/config.yml，与二进制同目录）
+# client_secret 在面板【服务器】页面生成；同机部署时 server 指向 127.0.0.1:5555
+server: 127.0.0.1:5555
+client_secret: "REPLACE_WITH_PANEL_SECRET"
+tls: false
+
+# 低配机器调优：关闭自更新/命令执行/高开销统计
+disable_auto_update: true
+disable_command_execute: true
+skip_connection_count: true
+skip_procs_count: true
+report_delay: 5
