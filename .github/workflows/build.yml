@@ -74,7 +74,7 @@ jobs:
           name: musl-binaries
           path: dist/
 
-      - name: Publish release (tag: alpine, overwritten on each build)
+      - name: "Publish release (tag: alpine, overwritten on each build)"
         uses: softprops/action-gh-release@v2
         with:
           tag_name: alpine
