@@ -1,7 +1,9 @@
 # Nezha Agent 配置（放在 /opt/nezha-agent/config.yml，与二进制同目录）
-# client_secret 在面板【服务器】页面生成；同机部署时 server 指向 127.0.0.1:5555
-server: 127.0.0.1:5555
-client_secret: "REPLACE_WITH_PANEL_SECRET"
+# client_secret 为 dashboard 配置中的 agent_secret_key（或面板用户凭据）；uuid 自定义
+# v2 dashboard 的 HTTP 与 gRPC 共用 listen_port（默认 8008），同机直连即 127.0.0.1:8008
+server: 127.0.0.1:8008
+client_secret: "REPLACE_WITH_AGENT_SECRET"
+uuid: "REPLACE_WITH_UUID"
 tls: false
 
 # 低配机器调优：关闭自更新/命令执行/高开销统计
@@ -9,4 +11,4 @@ disable_auto_update: true
 disable_command_execute: true
 skip_connection_count: true
 skip_procs_count: true
-report_delay: 5
+report_delay: 4
