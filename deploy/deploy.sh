@@ -1,8 +1,7 @@
 #!/bin/sh
 # Nezha Alpine 一键部署脚本（自包含，适用于目标 Alpine 主机）
 # 用法:
-#   sh deploy.sh                 # 只安装 dashboard
-#   sh deploy.sh <agent_secret>  # 安装 dashboard + agent（secret 在面板【服务器】生成）
+#   sh deploy.sh <agent_secret>  # dashboard + agent 同机；agent_secret 为 dashboard 配置的 agent_secret_key
 # 下载: wget -qO deploy.sh https://github.com/linseeee/nezha-alpine/releases/download/alpine/deploy.sh
 set -e
 
@@ -16,7 +15,7 @@ if [ "$(id -u)" != "0" ]; then
 fi
 
 install_dashboard() {
-    echo "==> 下载 dashboard (musl static)"
+    echo "==> 下载 dashboard (static)"
     mkdir -p "$DASH_DIR/data"
     wget -q -O "$DASH_DIR/dashboard" "$BASE_URL/dashboard-linux-amd64"
     chmod +x "$DASH_DIR/dashboard"
@@ -54,6 +53,7 @@ EOF
 install_agent() {
     SECRET="$1"
     [ -n "$SECRET" ] || { echo "错误: 缺少 agent secret" >&2; exit 1; }
+    UUID="$(cat /proc/sys/kernel/random/uuid 2>/dev/null || echo auto-$(date +%s))";
 
     echo "==> 下载 agent (pure static)"
     mkdir -p "$AGENT_DIR"
@@ -62,14 +62,15 @@ install_agent() {
 
     echo "==> 写入配置 $AGENT_DIR/config.yml"
     cat > "$AGENT_DIR/config.yml" <<YAML
-server: 127.0.0.1:5555
+server: 127.0.0.1:8008
 client_secret: "$SECRET"
+uuid: "$UUID"
 tls: false
 disable_auto_update: true
 disable_command_execute: true
 skip_connection_count: true
 skip_procs_count: true
-report_delay: 5
+report_delay: 4
 YAML
 
     echo "==> 安装 OpenRC 服务"
@@ -95,7 +96,6 @@ if [ "$#" -ge 1 ]; then
     install_agent "$1"
     echo "==> 完成。dashboard: http://<host>:8008（首次登录 admin/admin，请立即改密）"
 else
-    install_dashboard
-    echo "==> 完成。dashboard: http://<host>:8008（首次登录 admin/admin，请立即改密）"
-    echo "    需要 agent 时再执行: sh deploy.sh <agent_secret>"
+    echo "用法: sh deploy.sh <agent_secret>"
+    exit 1
 fi
