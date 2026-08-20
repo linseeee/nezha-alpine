@@ -16,15 +16,19 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    container:
+      image: goreleaser/goreleaser-cross:v1.26
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Install tools (yq, unzip)
+      - name: Install tools
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq unzip
-          sudo wget -q https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq
-          sudo chmod +x /usr/local/bin/yq
+          apt-get update -qq
+          apt-get install -y -qq unzip curl
+          wget -q https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq
+          chmod +x /usr/bin/yq
+
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v5
         with:
@@ -40,17 +44,17 @@ jobs:
         working-directory: src/nezha
         run: bash script/fetch-frontends.sh
 
-      - name: Generate swagger docs (docs package required by controller.go)
+      - name: Generate swagger docs + tidy
         working-directory: src/nezha
         run: |
           go install github.com/swaggo/swag/cmd/swag@latest
           swag init --pd -d cmd/dashboard -g main.go -o cmd/dashboard/docs
           go mod tidy
 
-      - name: Build dashboard (static, embedded frontend — same flags as upstream goreleaser)
+      - name: Build dashboard (same toolchain/flags as upstream goreleaser)
         working-directory: src/nezha
         run: |
-          CGO_ENABLED=1 CC=gcc go build -trimpath -buildvcs=false -tags go_json \
+          CGO_ENABLED=1 CC=x86_64-linux-gnu-gcc go build -trimpath -buildvcs=false -tags go_json \
             -ldflags "-s -w -X github.com/nezhahq/nezha/service/singleton.Version=${NZHA_VERSION} -extldflags '-static -fpic'" \
             -o "${GITHUB_WORKSPACE}/dist/dashboard-linux-amd64" ./cmd/dashboard
 
@@ -61,10 +65,9 @@ jobs:
             -ldflags "-s -w -X github.com/nezhahq/agent/pkg/monitor.Version=${AGENT_VERSION}" \
             -o "${GITHUB_WORKSPACE}/dist/nezha-agent-linux-amd64" ./cmd/agent
 
-      - name: Verify static linking
+      - name: Verify
         run: |
           file dist/dashboard-linux-amd64 dist/nezha-agent-linux-amd64
-          (ldd dist/dashboard-linux-amd64 2>&1 || true) | head -3
 
       - name: Checksums
         run: |
@@ -87,7 +90,7 @@ jobs:
           tag_name: alpine
           name: "Nezha Alpine binaries — dashboard ${{ env.NZHA_VERSION }} / agent ${{ env.AGENT_VERSION }}"
           body: |
-            静态二进制（-static 链接，官方同款构建参数，可在 Alpine/musl 环境直接运行）。
+            静态二进制（与官方同工具链 goreleaser-cross 构建，可在 Alpine/musl 环境直接运行）。
             - dashboard: nezhahq/nezha ${{ env.NZHA_VERSION }}（内嵌官方前端）
             - agent: nezhahq/agent ${{ env.AGENT_VERSION }}
             下载后目标机部署见仓库 deploy/ 目录。
