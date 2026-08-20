@@ -40,6 +40,12 @@ jobs:
         working-directory: src/nezha
         run: bash script/fetch-frontends.sh
 
+      - name: Generate swagger docs (docs package is required by controller.go)
+        working-directory: src/nezha
+        run: |
+          go install github.com/swaggo/swag/cmd/swag@latest
+          swag init --pd -d cmd/dashboard -g main.go -o cmd/dashboard/docs
+
       - name: Build dashboard (musl static, embedded frontend)
         working-directory: src/nezha
         run: |
